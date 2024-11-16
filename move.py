@@ -1,8 +1,12 @@
 from structure import colors,movings,targets,Square,Position,Board
 import copy
-class Available_moves:
-    def __init__(self, board):
-        self.board = board
+
+class Move:
+    def __init__(self, board, direction):
+        self.original_boad=board
+        self.board = copy.deepcopy(board)
+        self.final_positions = {}
+        self.new_pos,self.target_squares,self.moving_squares=self.move(direction)
 
     def check_available_moves(self):
         for row in self.board.board:
@@ -41,89 +45,190 @@ class Available_moves:
         return moves
 
 
-
-class Move:
-    def __init__(self, board, direction):
-        self.board = board
-        self.final_positions = {}
-        self.move(direction)
-
-
     def move(self, direction):
-        for row in range(len(self.board.board)):
-            for col in range(len(self.board.board[row])):
+
+        old_positions=copy.deepcopy(self.final_positions)
+
+        moved=[]
+        target_squares=self.board.targets_squares
+        moving_squares=self.board.init_moving_squares
+
+        
+
+        delta_row, delta_col = 0, 0
+        if direction == "left":
+            delta_col = -1
+        elif direction == "right":
+            delta_col = 1
+        elif direction == "up":
+            delta_row = -1
+        elif direction == "down":
+            delta_row = 1
+
+        row_range = (
+            range(len(self.board.board) - 1, -1, -1) 
+            if direction == "down" or direction=="right" else range(len(self.board.board))
+        )
+        col_range = (
+            range(len(self.board.board[0]) - 1, -1, -1) 
+            if direction == "right" or direction=="right" else range(len(self.board.board[0]))
+        )
+        for row in row_range:
+            for col in col_range:
                 square = self.board.board[row][col]
-                if square in movings:
-                    delta_row, delta_col = 0, 0
-                    if direction == "left":
-                        delta_col = -1
-                    elif direction == "right":
-                        delta_col = 1
-                    elif direction == "up":
-                        delta_row = -1
-                    elif direction == "down":
-                        delta_row = 1
+                for m_square in moving_squares:
+                    if m_square.type==square:
+                        the_move = self.find_moves_in_direction(row, col, delta_row, delta_col)
+                        # new_pos = (row, col)
+                        
+                        arrive=False
+                        
+                        if the_move is not None and square not in moved:
+                            # print(square,square not in moved)
+                            new_pos = the_move
+                            self.final_positions[square] = new_pos
+                            moved.append(square)
+                            
+                            for its_target in target_squares:
+                                # print(its_target.color,its_target.position.x,its_target.position.y)
+                                for moving in moving_squares:
+                                #   print(moving.color)
+                                    if (
+                                        moving.type==square 
+                                        and moving.color==its_target.color 
+                                        and its_target.position.x == new_pos[0] 
+                                        and its_target.position.y == new_pos[1]
+                                    ):
 
-                    the_move = Available_moves(self.board).find_moves_in_direction(row, col, delta_row, delta_col)
-                    new_pos = (row, col)
+                                        arrive=True
+                                                    
+                            if(not arrive):    
+                                self.board.board[new_pos[0]][new_pos[1]]=square
+                                self.board.board[row][col]="_"
+                                
 
-                    while the_move is not None:
-                        new_pos = the_move
-                        the_move = Available_moves(self.board).find_moves_in_direction(new_pos[0], new_pos[1], delta_row, delta_col)
+                            # print(f"Final position for {square} moving {direction}: {new_pos}")
 
-                    self.final_positions[square] = new_pos
-                    # print(f"Final position for {square.type} moving {direction}: {new_pos}")
+        # print("\nFinal positions after moving", direction, "are:", self.final_positions)
+        # print(moved)
+        # print(old_positions)
+        if old_positions!=self.final_positions:
+            self.move(direction)
 
-        print("\nFinal positions after moving", direction, "are:", self.final_positions)
-        return self.final_positions
+        return self.final_positions,target_squares,moving_squares
 
 class State:
     def __init__(self, board, direction):
-        self.board = copy.deepcopy(board)
+        self.board  = copy.deepcopy(board)
         self.direction = direction
         self.next_state()
 
+
     def next_state(self):
 
-        new_pos = Move(self.board, self.direction)
-        
-        for row in range(len(self.board.board)):
-            for col in range(len(self.board.board[row])):
-                square = self.board.board[row][col]
-                if square in movings:
-                    self.board.board[row][col] = "_"
+        the_move = Move(self.board, self.direction)
+        moving_types=[]
+        movings_in_board=[]
 
-        for pos, square in new_pos.final_positions.items():
-            row, col = square
-            self.board.board[row][col] = pos
+        for s in the_move.moving_squares:
+            moving_types.append(s.type)
+
+        for row in range(len(self.board.board)):
+
+            for col in range(len(self.board.board[row])):
+            
+                square = self.board.board[row][col]
+            
+                if square in moving_types :
+                    movings_in_board.append(square)
+                    if square in the_move.new_pos :
+                        self.board.board[row][col] = "_"
+
+
+        for t in the_move.target_squares:
+            for m in the_move.moving_squares:
+                if (
+                    m.type in movings_in_board 
+                    and m.color==t.color 
+                    and self.board.board[t.position.x][t.position.y]=="_"
+                    ):
+
+                    self.board.board[t.position.x][t.position.y] = t.type
+
+        for square,pos in the_move.new_pos.items():
+
+            row, col = pos
+            self.board.board[row][col] = square
+
+            for t in the_move.target_squares:
+                if t.position.x==row and t.position.y==col:
+                    for m in the_move.moving_squares:
+                        if t.color==m.color and m.type==square:
+                            self.board.board[row][col]="_"    
+
+        # if (not movings_in_board):
+        #     print("--------you win-------")
+        #     exit()    
+        # self.get_board().display_board()     
 
         return self.board
 
     def get_board(self):
 
-        return self.board    
+        return self.board 
+
       
 ##########  test  #########
-board = Board(1)
-print("Initial Board:")
-board.display_board()
-
-state = State(board, "left")
-print("\nNew Board after moving left:")
-state.get_board().display_board()  
+# board = Board(1)
+# print("Initial Board:")
+# board.display_board()
 
 
 # print("\nOriginal Board remains unchanged:")
 # board.display_board()
 
-state = State(state.get_board(), "down")
-print("\nBoard after moving down:")
-state.get_board().display_board()
 
-state = State(state.get_board(), "right")
-print("\nBoard after moving down:")
-state.get_board().display_board()
+# state = State(board, "down")
+# print("\nNew Board after moving down:")
+# state.get_board().display_board()  
 
-state = State(state.get_board(), "up")
-print("\nBoard after moving down:")
-state.get_board().display_board()
+
+# state = State(board, "left")
+# print("\nNew Board after moving left:")
+# state.get_board().display_board()  
+
+# state = State(state.get_board(), "right")
+# print("\nBoard after moving right:")
+# state.get_board().display_board()
+
+
+# state = State(state.get_board(), "left")
+# print("\nBoard after moving left:")
+# state.get_board().display_board()
+
+
+# state = State(state.get_board(), "up")
+# print("\nBoard after moving up:")
+# state.get_board().display_board()
+
+
+# state = State(state.get_board(), "right")
+# print("\nNew Board after moving right:")
+# state.get_board().display_board()  
+
+
+# state = State(state.get_board(), "up")
+# print("\nBoard after moving up:")
+# state.get_board().display_board()
+
+# state = State(state.get_board(), "left")
+# print("\nBoard after moving left:")
+# state.get_board().display_board()
+
+# state = State(state.get_board(), "down")
+# print("\nBoard after moving down:")
+# state.get_board().display_board()
+
+# state = State(state.get_board(), "down")
+# print("\nBoard after moving down:")
+# state.get_board().display_board()
