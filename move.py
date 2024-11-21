@@ -47,12 +47,10 @@ class Move:
 
     def move(self, direction):
 
-        old_positions=copy.deepcopy(self.final_positions)
-
         moved=[]
         target_squares=self.board.targets_squares
         moving_squares=self.board.init_moving_squares
-
+        squares_can_move=[]
         
 
         delta_row, delta_col = 0, 0
@@ -64,6 +62,7 @@ class Move:
             delta_row = -1
         elif direction == "down":
             delta_row = 1
+
 
         row_range = (
             range(len(self.board.board) - 1, -1, -1) 
@@ -79,6 +78,7 @@ class Move:
                 for m_square in moving_squares:
                     if m_square.type==square:
                         the_move = self.find_moves_in_direction(row, col, delta_row, delta_col)
+                        # print(the_move)
                         # new_pos = (row, col)
                         
                         arrive=False
@@ -86,34 +86,60 @@ class Move:
                         if the_move is not None and square not in moved:
                             # print(square,square not in moved)
                             new_pos = the_move
-                            self.final_positions[square] = new_pos
-                            moved.append(square)
+                            squares_can_move.append(square)
+
+        old_positions={}
+        while(True):
+            # print("ksjaaaaaaajjjjjjjjjjjjjjjj")
+            # print(old_positions)
+            # print(self.final_positions)
+            # print(squares_can_move)
+            old_positions=copy.deepcopy(self.final_positions)
+            
+            for row in row_range:
+                for col in col_range:
+                    square = self.board.board[row][col]
+                    for m_square in squares_can_move:
+                        if m_square==square:
+                            the_move = self.find_moves_in_direction(row, col, delta_row, delta_col)
+                            # print(square,the_move)
+                            # new_pos = (row, col)
                             
-                            for its_target in target_squares:
-                                # print(its_target.color,its_target.position.x,its_target.position.y)
-                                for moving in moving_squares:
-                                #   print(moving.color)
-                                    if (
-                                        moving.type==square 
-                                        and moving.color==its_target.color 
-                                        and its_target.position.x == new_pos[0] 
-                                        and its_target.position.y == new_pos[1]
-                                    ):
-
-                                        arrive=True
-                                                    
-                            if(not arrive):    
-                                self.board.board[new_pos[0]][new_pos[1]]=square
-                                self.board.board[row][col]="_"
+                            arrive=False
+                            
+                            if the_move is not None :
+                                # print(square,square not in moved)
+                                new_pos = the_move
+                                self.final_positions[square] = new_pos
+                                # print("in if",self.final_positions)
+                                moved.append(square)
                                 
+                                for its_target in target_squares:
+                                    # print(its_target.color,its_target.position.x,its_target.position.y)
+                                    for moving in moving_squares:
+                                    #   print(moving.color)
+                                        if (
+                                            moving.type==square 
+                                            and moving.color==its_target.color 
+                                            and its_target.position.x == new_pos[0] 
+                                            and its_target.position.y == new_pos[1]
+                                        ):
 
+                                            arrive=True
+                                                        
+                                if(not arrive):    
+                                    self.board.board[new_pos[0]][new_pos[1]]=square
+                                    self.board.board[row][col]="_"
+            # print(old_positions)
+            # print(self.final_positions)                        
+            if(old_positions == self.final_positions):
+                
+                break    
                             # print(f"Final position for {square} moving {direction}: {new_pos}")
 
         # print("\nFinal positions after moving", direction, "are:", self.final_positions)
         # print(moved)
         # print(old_positions)
-        if old_positions!=self.final_positions:
-            self.move(direction)
 
         return self.final_positions,target_squares,moving_squares
 
